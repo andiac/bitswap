@@ -1,3 +1,4 @@
+import os
 from utils.torch.rand import *
 from model.cifar_train import Model
 from torch.utils.data import *
@@ -8,6 +9,7 @@ import time
 import argparse
 from tqdm import tqdm
 import pickle
+import mydatasets
 
 def eval_bpd(quantbits, nz, gpu):
     # model and compression params
@@ -30,7 +32,7 @@ def eval_bpd(quantbits, nz, gpu):
         reswidth = 256
     assert nz > 0
 
-    print(f"{'Bit-Swap' if bitswap else 'BB-ANS'} - CIFAR - {nz} latent layers - {quantbits} bits quantization")
+    print(f"CIFAR - {nz} latent layers - {quantbits} bits quantization")
 
     # seed for replicating experiment and stability
     np.random.seed(100)
@@ -68,14 +70,10 @@ def eval_bpd(quantbits, nz, gpu):
         def __call__(self, pic):
             return pic * 255
     transform_ops = transforms.Compose([transforms.ToTensor(), ToInt()])
-    test_set = datasets.CIFAR10(root="model/data/cifar", train=False, transform=transform_ops, download=True)
+    test_set = mydatasets.MyCeleba(transform=transform_ops)
 
     # sample (experiments, ndatapoints) from test set with replacement
-    if not os.path.exists("bitstreams/cifar/indices"):
-        randindices = np.random.choice(len(test_set.data), size=(experiments, ndatapoints), replace=False)
-        np.save("bitstreams/cifar/indices", randindices)
-    else:
-        randindices = np.load("bitstreams/cifar/indices")
+    randindices = np.random.choice(len(test_set.data), size=(experiments, ndatapoints), replace=False)
 
     print("Setting up metrics..")
     # metrics for the results

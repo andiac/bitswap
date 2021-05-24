@@ -30,7 +30,7 @@ def eval_bpd(quantbits, nz, gpu):
         reswidth = 256
     assert nz > 0
 
-    print(f"{'Bit-Swap' if bitswap else 'BB-ANS'} - CIFAR - {nz} latent layers - {quantbits} bits quantization")
+    print(f"CIFAR - {nz} latent layers - {quantbits} bits quantization")
 
     # seed for replicating experiment and stability
     np.random.seed(100)
@@ -42,7 +42,7 @@ def eval_bpd(quantbits, nz, gpu):
 
     # compression experiment params
     experiments = 1
-    ndatapoints = 10000
+    ndatapoints = 26032
 
     # <=== MODEL ===>
     model = Model(xs = (3, 32, 32), nz=nz, zchannels=8, nprocessing=4, kernel_size=3, resdepth=8, reswidth=reswidth).to(device)
@@ -68,14 +68,10 @@ def eval_bpd(quantbits, nz, gpu):
         def __call__(self, pic):
             return pic * 255
     transform_ops = transforms.Compose([transforms.ToTensor(), ToInt()])
-    test_set = datasets.CIFAR10(root="model/data/cifar", train=False, transform=transform_ops, download=True)
+    test_set = datasets.SVHN(root="model/data/svhn", split="test", transform=transform_ops, download=True)
 
     # sample (experiments, ndatapoints) from test set with replacement
-    if not os.path.exists("bitstreams/cifar/indices"):
-        randindices = np.random.choice(len(test_set.data), size=(experiments, ndatapoints), replace=False)
-        np.save("bitstreams/cifar/indices", randindices)
-    else:
-        randindices = np.load("bitstreams/cifar/indices")
+    randindices = np.random.choice(len(test_set.data), size=(experiments, ndatapoints), replace=False)
 
     print("Setting up metrics..")
     # metrics for the results

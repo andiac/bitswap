@@ -1,3 +1,4 @@
+import os
 from utils.torch.rand import *
 from model.cifar_train import Model
 from torch.utils.data import *
@@ -8,6 +9,7 @@ import time
 import argparse
 from tqdm import tqdm
 import pickle
+import mydatasets
 
 def eval_bpd(quantbits, nz, gpu):
     # model and compression params
@@ -30,7 +32,7 @@ def eval_bpd(quantbits, nz, gpu):
         reswidth = 256
     assert nz > 0
 
-    print(f"{'Bit-Swap' if bitswap else 'BB-ANS'} - CIFAR - {nz} latent layers - {quantbits} bits quantization")
+    print(f"CIFAR - {nz} latent layers - {quantbits} bits quantization")
 
     # seed for replicating experiment and stability
     np.random.seed(100)
@@ -47,7 +49,7 @@ def eval_bpd(quantbits, nz, gpu):
     # <=== MODEL ===>
     model = Model(xs = (3, 32, 32), nz=nz, zchannels=8, nprocessing=4, kernel_size=3, resdepth=8, reswidth=reswidth).to(device)
     model.load_state_dict(
-        torch.load(f'model/params/cifar/nz{nz}',
+        torch.load(f'model/params/imagenet/nz{nz}',
                    map_location=lambda storage, location: storage
                    )
     )
@@ -55,7 +57,7 @@ def eval_bpd(quantbits, nz, gpu):
 
     print("Discretizing")
     # get discretization bins for latent variables
-    zendpoints, zcentres = discretize(nz, quantbits, type, device, model, "cifar")
+    zendpoints, zcentres = discretize(nz, quantbits, type, device, model, "imagenet")
 
     # get discretization bins for discretized logistic
     xbins = ImageBins(type, device, xdim)
@@ -68,14 +70,10 @@ def eval_bpd(quantbits, nz, gpu):
         def __call__(self, pic):
             return pic * 255
     transform_ops = transforms.Compose([transforms.ToTensor(), ToInt()])
-    test_set = datasets.CIFAR10(root="model/data/cifar", train=False, transform=transform_ops, download=True)
+    test_set = mydatasets.MyCeleba(transform=transform_ops)
 
     # sample (experiments, ndatapoints) from test set with replacement
-    if not os.path.exists("bitstreams/cifar/indices"):
-        randindices = np.random.choice(len(test_set.data), size=(experiments, ndatapoints), replace=False)
-        np.save("bitstreams/cifar/indices", randindices)
-    else:
-        randindices = np.load("bitstreams/cifar/indices")
+    randindices = np.random.choice(len(test_set.data), size=(experiments, ndatapoints), replace=False)
 
     print("Setting up metrics..")
     # metrics for the results
@@ -110,7 +108,7 @@ def eval_bpd(quantbits, nz, gpu):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', default=0, type=int)  # assign to gpu
-    parser.add_argument('--nz', default=8, type=int)  # choose number of latent variables
+    parser.add_argument('--nz', default=4, type=int)  # choose number of latent variables
     parser.add_argument('--quantbits', default=10, type=int)  # choose discretization precision
     parser.add_argument('--bitswap', default=1, type=int)  # choose whether to use Bit-Swap or not
 
